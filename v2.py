@@ -10,13 +10,13 @@ batch_size = 64 # how many independent sequences will we process in parallel?
 block_size = 6 # what is the maximum context length for predictions?
 max_iters = 5000
 eval_interval = 100
-learning_rate = 3e-4
+learning_rate = 5e-5
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 500
 n_embd = 128
 n_heads = 8
 n_layers = 4
-dropout = 0.15
+dropout = 0.2
 # ------------------------------------
 
 torch.manual_seed(1337)
@@ -184,10 +184,9 @@ class BigramLanguageModel(nn.Module):
             # Sample from the distribution
 
             idx_next = torch.multinomial(probs, num_samples=1)
-            if idx_next == _pad:
+            if idx_next.item() == _pad:
                 break
             idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
-        print(idx)
             
         return idx
 
@@ -215,10 +214,6 @@ def train(max_tokens=50):
 
     return m, decoded_text
 
-# if __name__ == "__main__":
-#     # x, y = generate_data()
-#     # print(x[0], decode(x[0].tolist()))
-#     # print(chars)
-
-#     # train()
-#     train()
+if __name__ == "__main__":
+    x, y = generate_data()
+    print(x[0], y[0])
