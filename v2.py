@@ -217,6 +217,15 @@ class BigramLanguageModel(nn.Module):
             
         return idx
 
+def calculate(model, device, context="77+55=", max_tokens=50):
+    context = torch.tensor(encode(context), dtype=torch.long).unsqueeze(0).to(device)
+    out = model.generate(context, max_new_tokens=max_tokens)[0].tolist()
+    eq_idx = len(out) - out.index(encode("=")[0])
+    reversed_answer = out[-eq_idx+1:][::-1]
+    out[-len(reversed_answer):] = reversed_answer
+
+    return decode(out)
+
 def train(max_tokens=50):
     m = BigramLanguageModel(n_layers).to(device)
 
@@ -246,6 +255,10 @@ def train(max_tokens=50):
     return m, decoded_text
 
 if __name__ == "__main__":
-    # x, y = generate_data()
-    # print(x[0], y[0])
-    train()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = BigramLanguageModel(n_layers).to(device)
+
+    model_state_dict = torch.load("./models/addition.pth", map_location=device, weights_only=True)
+    model.load_state_dict(model_state_dict)
+
+    print(calculate(model, device))
