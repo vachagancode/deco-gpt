@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from random import randint
+from tqdm import tqdm
 
 # hyperparameters 
 batch_size = 64 # how many independent sequences will we process in parallel?
@@ -201,7 +202,7 @@ def train(max_tokens=50):
 
     optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
 
-    for iter in range(max_iters):
+    for iter in tqdm(range(max_iters)):
 
         if iter % eval_interval == 0:
             losses = estimate_loss(m)
