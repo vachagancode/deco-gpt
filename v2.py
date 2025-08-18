@@ -8,14 +8,14 @@ from tqdm import tqdm
 # hyperparameters 
 batch_size = 64 # how many independent sequences will we process in parallel?
 block_size = 6 # what is the maximum context length for predictions?
-max_iters = 5000
-eval_interval = 100
-learning_rate = 5e-5
+max_iters = 1000
+eval_interval = 500
+learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 500
-n_embd = 128
+n_embd = 256
 n_heads = 8
-n_layers = 4
+n_layers = 8
 dropout = 0.2
 # ------------------------------------
 
@@ -194,6 +194,7 @@ def train(max_tokens=50):
     m = BigramLanguageModel(n_layers).to(device)
 
     optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.65, patience=1)
 
     for iter in tqdm(range(max_iters)):
 
@@ -207,6 +208,7 @@ def train(max_tokens=50):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step(loss)
 
     context = torch.tensor(encode("5+5="), dtype=torch.long).unsqueeze(0).to(device)
     decoded_text = decode(m.generate(context, max_new_tokens=max_tokens)[0].tolist())
