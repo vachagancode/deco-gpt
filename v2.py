@@ -43,19 +43,28 @@ def generate_random_additions():
     b = randint(0, 100)
     sum = a + b
 
-    item = encode(f"{a}+{b}={sum}")
-    item += [_pad for _ in range(block_size - len(item))]
-    item[-1] = _end
+    source = encode(f"{a}+{b}={str(sum)[::-1]}")
+    eq_idx = source.index(encode("="))
+    # Pad source and target
+    sequence += [_pad for _ in range(block_size - len(source))]
+    sequence[-1] = _end
 
-    return torch.tensor(item, dtype=torch.long, device=device)
+    source = sequence[:-1]
+    target = sequence[1:]
+
+    source, target = torch.tensor(source, dtype=torch.long, device=device), torch.tensor(target, dtype=torch.long, device=device)
+
+    target[:eq_idx] = -1
+
+    return source, target
 
 def generate_data(max_items=8):
     x = []
     y = []
     for _ in range(max_items):
-        sample = generate_random_additions()
-        x.append(sample[:-1])
-        y.append(sample[1:])
+        source, target = generate_random_additions()
+        x.append(source)
+        y.append(target)
 
     x = torch.stack(x)
     y = torch.stack(y)
@@ -145,7 +154,7 @@ class MultiHeadAttention(nn.Module):
 class BigramLanguageModel(nn.Module):
     def __init__(self, num_layers):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size+1, n_embd)
+        self.token_embedding_table = nn.Embedding(vocab_size+2, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.mh_attenion = MultiHeadAttention(n_embd, n_heads)
         self.blocks = nn.Sequential(*[Block(n_embd, n_heads) for _ in range(num_layers)])
@@ -167,7 +176,10 @@ class BigramLanguageModel(nn.Module):
         else:
             B, T, C = logits.shape
             logits = logits.view(B*T, C)
+
+            equal_idx = (encode("="))
             targets = targets.view(B*T)
+
 
             loss = F.cross_entropy(logits, targets, ignore_index=_pad)
 
