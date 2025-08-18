@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 # hyperparameters 
 batch_size = 64 # how many independent sequences will we process in parallel?
-block_size = 6 # what is the maximum context length for predictions?
+block_size = 13 # what is the maximum context length for predictions?
 max_iters = 10000
 eval_interval = 500
 learning_rate = 3e-4
@@ -37,8 +37,8 @@ data = torch.tensor(encode(text), dtype=torch.long)
 n = int(0.9*len(data))
 
 def generate_random_additions():
-    a = randint(0, 9)
-    b = randint(0, 9)
+    a = randint(0, 100)
+    b = randint(0, 100)
     sum = a + b
 
     item = encode(f"{a}+{b}={sum}")
