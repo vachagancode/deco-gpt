@@ -35,30 +35,24 @@ decode = lambda l: ''.join([itos[i] if i != _pad else "" for i in l])
 
 data = torch.tensor(encode(text), dtype=torch.long)
 n = int(0.9*len(data))
-train_data = data[:n]
-valid_data = data[n:]
 
 def generate_random_additions():
     a = randint(0, 9)
     b = randint(0, 9)
     sum = a + b
 
-    source = encode(f"{a}+{b}=") 
-    target = encode(str(sum)[::-1])
+    item = encode(f"{a}+{b}={sum}")
+    item += [_pad for _ in range(block_size - len(item))]
 
-    # Pad values to have equal lengths
-    source += [_pad for _ in range(block_size - len(source))]
-    target += [_pad for _ in range(block_size - len(target))]
-    
-    return torch.tensor(source, dtype=torch.long), torch.tensor(target, dtype=torch.long)
+    return torch.tensor(item, dtype=torch.long, device=device)
 
 def generate_data(max_items=8):
     x = []
     y = []
     for _ in range(max_items):
-        source, target = generate_random_additions()
-        x.append(source)
-        y.append(target)
+        sample = generate_random_additions()
+        x.append(sample[:-1])
+        y.append(sample[1:])
 
     x = torch.stack(x)
     y = torch.stack(y)
@@ -215,7 +209,7 @@ def train(max_tokens=50):
         loss.backward()
         optimizer.step()
 
-    context = torch.tensor(encode("5+5="), dtype=torch.long).unsqueeze(0)
+    context = torch.tensor(encode("5+5="), dtype=torch.long).unsqueeze(0).to(device)
     decoded_text = decode(m.generate(context, max_new_tokens=max_tokens)[0].tolist())
     print(decoded_text)
 
