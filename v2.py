@@ -8,7 +8,7 @@ from tqdm import tqdm
 # hyperparameters  - main
 batch_size = 64 # how many independent sequences will we process in parallel?
 block_size = 13 # what is the maximum context length for predictions?
-max_iters = 10000
+max_iters = 2000
 eval_interval = 500
 learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -211,7 +211,7 @@ class BigramLanguageModel(nn.Module):
             # Sample from the distribution
 
             idx_next = torch.multinomial(probs, num_samples=1)
-            if idx_next.item() == _pad:
+            if idx_next.item() == _pad or idx_next.item() == _end:
                 break
             idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
             
