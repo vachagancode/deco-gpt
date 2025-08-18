@@ -202,13 +202,15 @@ def train(max_tokens=50):
             losses = estimate_loss(m)
             print(f"Step: {iter} | Train Loss: {losses['train']:.4f} | Validation Loss: {losses['val']:.4f}")
 
+            scheduler.step(losses["train"])
+
         xb, yb = generate_data(batch_size)
 
         logits, loss = m(xb, yb)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        scheduler.step(loss)
+        
 
     context = torch.tensor(encode("5+5="), dtype=torch.long).unsqueeze(0).to(device)
     decoded_text = decode(m.generate(context, max_new_tokens=max_tokens)[0].tolist())
