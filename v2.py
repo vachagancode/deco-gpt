@@ -63,7 +63,7 @@ def generate_data(max_items=8):
     x = torch.stack(x)
     y = torch.stack(y)
 
-    return x, y
+    return x.to(device), y.to(device)
 
 @torch.no_grad()
 def estimate_loss(model):
