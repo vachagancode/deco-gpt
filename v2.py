@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from random import randint
 from tqdm import tqdm
 
-# hyperparameters 
+# hyperparameters  - main
 batch_size = 64 # how many independent sequences will we process in parallel?
 block_size = 13 # what is the maximum context length for predictions?
 max_iters = 10000
@@ -17,6 +17,20 @@ n_embd = 256
 n_heads = 8
 n_layers = 8
 dropout = 0.2
+# ------------------------------------
+
+# hyperparameters  - test
+# batch_size = 8 # how many independent sequences will we process in parallel?
+# block_size = 13 # what is the maximum context length for predictions?
+# max_iters = 150
+# eval_interval = 50
+# learning_rate = 3e-4
+# device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# eval_iters = 500
+# n_embd = 64
+# n_heads = 4
+# n_layers = 4
+# dropout = 0.2
 # ------------------------------------
 
 torch.manual_seed(1337)
@@ -43,15 +57,16 @@ def generate_random_additions():
     b = randint(0, 100)
     sum = a + b
 
-    source = encode(f"{a}+{b}={str(sum)[::-1]}")
-    eq_idx = source.index(encode("="))
+    sequence = encode(f"{a}+{b}={str(sum)[::-1]}")
+
     # Pad source and target
-    sequence += [_pad for _ in range(block_size - len(source))]
+    sequence += [_pad for _ in range(block_size - len(sequence))]
     sequence[-1] = _end
 
     source = sequence[:-1]
     target = sequence[1:]
-
+    eq_idx = target.index(*encode("="))
+    
     source, target = torch.tensor(source, dtype=torch.long, device=device), torch.tensor(target, dtype=torch.long, device=device)
 
     target[:eq_idx] = -1
@@ -159,7 +174,7 @@ class BigramLanguageModel(nn.Module):
         self.mh_attenion = MultiHeadAttention(n_embd, n_heads)
         self.blocks = nn.Sequential(*[Block(n_embd, n_heads) for _ in range(num_layers)])
         self.ln_f = nn.LayerNorm(n_embd)
-        self.lm_head = nn.Linear(n_embd, vocab_size+1)
+        self.lm_head = nn.Linear(n_embd, vocab_size+2)
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
@@ -176,12 +191,9 @@ class BigramLanguageModel(nn.Module):
         else:
             B, T, C = logits.shape
             logits = logits.view(B*T, C)
-
-            equal_idx = (encode("="))
             targets = targets.view(B*T)
 
-
-            loss = F.cross_entropy(logits, targets, ignore_index=_pad)
+            loss = F.cross_entropy(logits, targets, ignore_index=-1)
 
         return logits, loss
     
@@ -234,5 +246,6 @@ def train(max_tokens=50):
     return m, decoded_text
 
 if __name__ == "__main__":
-    x, y = generate_data()
-    print(x[0], y[0])
+    # x, y = generate_data()
+    # print(x[0], y[0])
+    train()
