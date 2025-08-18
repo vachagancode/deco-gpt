@@ -25,13 +25,15 @@ with open('input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 chars = sorted(list(set(text)))
-vocab_size = len(chars) + 1
+vocab_size = len(chars) + 2
 _pad = len(chars) + 1
+_end = len(chars) + 2
+
 stoi = { ch:i for i, ch in enumerate(chars) }
 itos = { i:ch for i, ch in enumerate(chars) }
 
 encode = lambda s: [stoi[c] for c in s]
-decode = lambda l: ''.join([itos[i] if i != _pad else "" for i in l])
+decode = lambda l: ''.join([itos[i] if i != _pad or i != _end else "" for i in l])
 
 data = torch.tensor(encode(text), dtype=torch.long)
 n = int(0.9*len(data))
@@ -43,6 +45,7 @@ def generate_random_additions():
 
     item = encode(f"{a}+{b}={sum}")
     item += [_pad for _ in range(block_size - len(item))]
+    item[-1] = _end
 
     return torch.tensor(item, dtype=torch.long, device=device)
 
