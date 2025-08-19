@@ -52,12 +52,25 @@ decode = lambda l: ''.join([itos[i] if i != _pad or i != _end else "" for i in l
 data = torch.tensor(encode(text), dtype=torch.long)
 n = int(0.9*len(data))
 
-def generate_random_additions():
-    a = randint(0, 100)
-    b = randint(0, 100)
-    sum = a + b
+operations = ['+', '-', '*', '/']
 
-    sequence = encode(f"{a}+{b}={str(sum)[::-1]}")
+def generate_random_calculations():
+    # Get random operations
+    operation = operations[randint(0, len(operations) - 1)]
+
+    a = randint(0, 100)
+    b = randint(0 if operation != '/' else 1, 100)
+    match operation:
+        case '+':
+            result = a + b
+        case '-':
+            result = a - b
+        case '*':
+            result = a * b
+        case '/':
+            result = a // b
+
+    sequence = encode(f"{a}{operation}{b}={str(result)[::-1]}")
 
     # Pad source and target
     sequence += [_pad for _ in range(block_size - len(sequence))]
@@ -77,7 +90,7 @@ def generate_data(max_items=8):
     x = []
     y = []
     for _ in range(max_items):
-        source, target = generate_random_additions()
+        source, target = generate_random_calculations()
         x.append(source)
         y.append(target)
 
@@ -248,17 +261,18 @@ def train(max_tokens=50):
         optimizer.step()
         
 
-    context = torch.tensor(encode("5+5="), dtype=torch.long).unsqueeze(0).to(device)
+    context = torch.tensor(encode("5*5="), dtype=torch.long).unsqueeze(0).to(device)
     decoded_text = decode(m.generate(context, max_new_tokens=max_tokens)[0].tolist())
     print(decoded_text)
 
     return m, decoded_text
 
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = BigramLanguageModel(n_layers).to(device)
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # model = BigramLanguageModel(n_layers).to(device)
 
-    model_state_dict = torch.load("./models/addition.pth", map_location=device, weights_only=True)
-    model.load_state_dict(model_state_dict)
+    # model_state_dict = torch.load("./models/addition.pth", map_location=device, weights_only=True)
+    # model.load_state_dict(model_state_dict)
 
-    print(calculate(model, device))
+    # print(calculate(model, device))
+    train()
