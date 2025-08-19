@@ -20,8 +20,8 @@ dropout = 0.2
 # ------------------------------------
 
 # hyperparameters  - test
-# batch_size = 8 # how many independent sequences will we process in parallel?
-# block_size = 13 # what is the maximum context length for predictions?
+# batch_size = 1 # how many independent sequences will we process in parallel?
+# block_size = 18 # what is the maximum context length for predictions?
 # max_iters = 150
 # eval_interval = 50
 # learning_rate = 3e-4
@@ -39,15 +39,18 @@ with open('input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 chars = sorted(list(set(text)))
-vocab_size = len(chars) + 2
-_pad = len(chars) + 1
-_end = len(chars) + 2
+vocab_size = len(chars)
 
 stoi = { ch:i for i, ch in enumerate(chars) }
 itos = { i:ch for i, ch in enumerate(chars) }
 
+_pad = stoi["_"]
+_end = stoi[">"]
+
+print(_pad, _end)
+
 encode = lambda s: [stoi[c] for c in s]
-decode = lambda l: ''.join([itos[i] if i != _pad or i != _end else "" for i in l])
+decode = lambda l: ''.join([itos[i] for i in l if i != -1])
 
 data = torch.tensor(encode(text), dtype=torch.long)
 n = int(0.9*len(data))
@@ -68,9 +71,9 @@ def generate_random_calculations():
         case '*':
             result = a * b
         case '/':
-            result = a // b
+            result = a / b
 
-    sequence = encode(f"{a}{operation}{b}={str(result)[::-1]}")
+    sequence = encode(f"{a}{operation}{b}={str(result)[::-1] if operation != '/' else str(result)[:4][::-1]}")
 
     # Pad source and target
     sequence += [_pad for _ in range(block_size - len(sequence))]
@@ -182,12 +185,12 @@ class MultiHeadAttention(nn.Module):
 class BigramLanguageModel(nn.Module):
     def __init__(self, num_layers):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size+2, n_embd)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.mh_attenion = MultiHeadAttention(n_embd, n_heads)
         self.blocks = nn.Sequential(*[Block(n_embd, n_heads) for _ in range(num_layers)])
         self.ln_f = nn.LayerNorm(n_embd)
-        self.lm_head = nn.Linear(n_embd, vocab_size+2)
+        self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
@@ -275,4 +278,8 @@ if __name__ == "__main__":
     # model.load_state_dict(model_state_dict)
 
     # print(calculate(model, device))
+
+    # print(chars)
+    # print(decode(generate_random_calculations()[1].tolist()))
+
     train()
