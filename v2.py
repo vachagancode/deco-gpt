@@ -6,9 +6,9 @@ from random import randint
 from tqdm import tqdm
 
 # hyperparameters  - main
-batch_size = 64 # how many independent sequences will we process in parallel?
-block_size = 13 # what is the maximum context length for predictions?
-max_iters = 2000
+batch_size = 256 # how many independent sequences will we process in parallel?
+block_size = 14 # what is the maximum context length for predictions?
+max_iters = 10000
 eval_interval = 500
 learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
