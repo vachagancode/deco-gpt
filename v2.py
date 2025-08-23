@@ -18,7 +18,6 @@ n_heads = 8
 n_layers = 8
 dropout = 0.2
 # ------------------------------------
-
 # hyperparameters  - test
 # batch_size = 1 # how many independent sequences will we process in parallel?
 # block_size = 18 # what is the maximum context length for predictions?
@@ -47,47 +46,167 @@ itos = { i:ch for i, ch in enumerate(chars) }
 _pad = stoi["_"]
 _end = stoi[">"]
 
-print(_pad, _end)
-
 encode = lambda s: [stoi[c] for c in s]
 decode = lambda l: ''.join([itos[i] for i in l if i != -1])
 
 data = torch.tensor(encode(text), dtype=torch.long)
 n = int(0.9*len(data))
 
-operations = ['+', '-', '*', '/']
+operations = ['+', '-']
 
-def generate_random_calculations():
-    # Get random operations
-    operation = operations[randint(0, len(operations) - 1)]
-
-    a = randint(0, 100)
-    b = randint(0 if operation != '/' else 1, 100)
+def do_proper_operation(a, b, operation):
     match operation:
         case '+':
-            result = a + b
+            return a + b
         case '-':
-            result = a - b
+            return a - b
         case '*':
-            result = a * b
+            return a * b
         case '/':
-            result = a / b
+            return a / b if b != 0 else 0  # Avoid division by zero
+    return 0
 
-    sequence = encode(f"{a}{operation}{b}={str(result)[::-1] if operation != '/' else str(result)[:4][::-1]}")
+def generate_random_calculations(multi_operator=False):
 
-    # Pad source and target
-    sequence += [_pad for _ in range(block_size - len(sequence))]
-    sequence[-1] = _end
+    if multi_operator:
+        # Generate a random sequence with multiple operations
+        n_nums = randint(2, 4)
+        sequence = ""
+        chain_of_thoughts = []
 
-    source = sequence[:-1]
-    target = sequence[1:]
-    eq_idx = target.index(*encode("="))
-    
-    source, target = torch.tensor(source, dtype=torch.long, device=device), torch.tensor(target, dtype=torch.long, device=device)
+        final_result = 0
 
-    target[:eq_idx] = -1
+        for i in range(n_nums):
+            operation = operations[randint(0, len(operations) - 1)]
 
-    return source, target
+            a = randint(0, 10)
+            b = randint(0 if operation != "/" else 1, 10)  # Avoid division by zero on the last number
+            sequence += f"{a}{operation}{b}" if i == 0 else f"{operation}{b}"
+        
+        seq = []
+
+        if "/" in sequence:
+            seq += sequence.split("/")
+        elif "*" in sequence:
+            seq += sequence.split("*")
+        elif "-" in sequence:
+            if "+" in sequence:
+                add_idx = sequence.index("+")
+                sub_idx = sequence.index("-")
+
+                if add_idx < sub_idx:
+                    seq = sequence.split("-")
+                    prev = []
+                    for i, p in enumerate(seq):
+                        if "+" in p:
+                            result, cof = only_addition(p)
+                            prev.append(result)
+                            chain_of_thoughts += cof
+                        else:
+                            prev.append(p)
+                    
+                    prev_sub = prev[0]
+                    for r in prev[1:]:
+                        chain_of_thoughts.append(f"{prev_sub}-{r}={prev_sub-int(r)} then")
+                        prev_sub -= int(r)
+                        if r == prev[-1]:
+                            chain_of_thoughts.append(f" the result is: {prev_sub}")
+                else:
+                    seq = sequence.split("+")
+                    prev = []
+                    for i, p in enumerate(seq):
+                        if "-" in p:
+                            result, cof = only_subtraction(p)
+                            prev.append(result)
+                            chain_of_thoughts += cof
+                        else:
+                            prev.append(p)
+                    
+                    prev_sub = prev[0]
+                    for r in prev[1:]:
+                        chain_of_thoughts.append(f"{prev_sub}+{r}={prev_sub+int(r)} then")
+                        prev_sub += int(r)
+                        if r == prev[-1]:
+                            chain_of_thoughts.append(f" the result is: {prev_sub}")
+            else: # WORKS FINE
+                seq = sequence.split('-')
+                result = 0
+                prev = seq[0]
+                for i in range(1, len(seq)):
+                    new_prev = int(prev) - int(seq[i])
+                    chain_of_thoughts.append(f"{prev}-{seq[i]}={new_prev} then")
+                    prev = new_prev
+                result = prev
+                chain_of_thoughts.append(f" the result is: {result}")
+        elif "+" in sequence:
+            if "-" not in sequence:
+                result, cof = only_addition(sequence, inter=False)
+                chain_of_thoughts += cof
+
+
+        # elif "+" in sequence
+
+        print(sequence)
+        print(chain_of_thoughts)
+
+
+        # print(sequence)
+        # print(chain_of_thoughts)
+        # print(final_result)
+
+    else:
+        # Get random operations
+        operation = operations[randint(0, len(operations) - 1)]
+
+        a = randint(0, 100)
+        b = randint(0 if operation != '/' else 1, 100)
+        result = do_proper_operation(a, b, operation)
+
+        sequence = encode(f"{a}{operation}{b}={str(result)[::-1] if operation != '/' else str(result)[:4][::-1]}")
+
+        # Pad source and target
+        sequence += [_pad for _ in range(block_size - len(sequence))]
+        sequence[-1] = _end
+
+        source = sequence[:-1]
+        target = sequence[1:]
+        eq_idx = target.index(*encode("="))
+        
+        source, target = torch.tensor(source, dtype=torch.long, device=device), torch.tensor(target, dtype=torch.long, device=device)
+
+        target[:eq_idx] = -1
+
+        return source, target, sequence
+
+def only_subtraction(sequence, inter=True):
+    cof = []
+    seq = sequence.split('-')
+    result = 0
+    prev = seq[0]
+    for i in range(1, len(seq)):
+        new_prev = int(prev) - int(seq[i])
+        cof.append(f"{prev}-{seq[i]}={new_prev} then")
+        prev = new_prev
+    result = prev
+    if inter == False:
+        cof.append(f" the result is: {result}")
+
+    return result, cof
+
+def only_addition(sequence, inter=True):
+    cof = []
+    seq = sequence.split('+')
+    result = 0
+    prev = seq[0]
+    for i in range(1, len(seq)):
+        new_prev = int(prev) + int(seq[i])
+        cof.append(f"{prev}+{seq[i]}={new_prev} then")
+        prev = new_prev
+    result = prev
+    if inter == False:
+        cof.append(f" the result is: {result}")
+
+    return result, cof
 
 def generate_data(max_items=8):
     x = []
@@ -264,22 +383,19 @@ def train(max_tokens=50):
         optimizer.step()
         
 
-    context = torch.tensor(encode("5*5="), dtype=torch.long).unsqueeze(0).to(device)
+    context = torch.tensor(encode("5*7="), dtype=torch.long).unsqueeze(0).to(device)
     decoded_text = decode(m.generate(context, max_new_tokens=max_tokens)[0].tolist())
     print(decoded_text)
 
     return m, decoded_text
 
+# if __name__ == "__main__":
+#     model = BigramLanguageModel(n_layers).to(device)
+#     model.load_state_dict(torch.load('./models/calculator.pth', map_location=device))
+
+#     context = "74/49="
+#     decoded_text = calculate(model, device, context=context, max_tokens=50)
+#     print(decoded_text)
+
 if __name__ == "__main__":
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # model = BigramLanguageModel(n_layers).to(device)
-
-    # model_state_dict = torch.load("./models/addition.pth", map_location=device, weights_only=True)
-    # model.load_state_dict(model_state_dict)
-
-    # print(calculate(model, device))
-
-    # print(chars)
-    # print(decode(generate_random_calculations()[1].tolist()))
-
-    train()
+    generate_random_calculations(multi_operator=True)
